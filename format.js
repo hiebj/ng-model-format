@@ -15,14 +15,8 @@
                 if (($attrs.parseEmpty && $scope.$eval($attrs.parseEmpty)) ||
                     (value && (value + '').length)) {
                     parsed = format(value, $scope.$eval($attrs.parse), $filter);
-                    if ($attrs.parseType) {
-                        if ($attrs.parseType === 'number') {
-                            parsed = parsed * 1;
-                        } else if ($attrs.parseType === 'string') {
-                            parsed = parsed + '';
-                        } else if ($attrs.parseType === 'boolean') {
-                            parsed = !!parsed;
-                        }
+                    if (parsed && (parsed + '').length && typeof $attrs.number !== 'undefined') {
+                        parsed = parsed * 1;
                     }
                 }
                 if (formatters[$attrs.ngModel]) {
