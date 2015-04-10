@@ -1,21 +1,40 @@
 (function() {
     'use strict';
     angular
-        .module('model-format')
+        .module('model-format', [])
         .directive('parse', Parse)
         .directive('format', Format);
 
     var formatters = {};
 
-    function Parse($filter) {
+    function Parse($filter, $timeout) {
         function link($scope, $element, $attrs, $ngModel) {
-            $ngModel.$parsers.push(function(value) {
-                var parsed = format(value, $scope.$eval($attrs.parse), $filter);
-                if (formatters[$ngModel.$name] && parsed === value) {
-                    $ngModel.setViewValue(formatters[$ngModel.$name](value));
+            $ngModel.$parsers.push(parser);
+            function parser(value) {
+                var parsed = value;
+                if (($attrs.parseEmpty && $scope.$eval($attrs.parseEmpty)) ||
+                    (value && (value + '').length)) {
+                    parsed = format(value, $scope.$eval($attrs.parse), $filter);
+                    if ($attrs.parseType) {
+                        if ($attrs.parseType === 'number') {
+                            parsed = parsed * 1;
+                        } else if ($attrs.parseType === 'string') {
+                            parsed = parsed + '';
+                        } else if ($attrs.parseType === 'boolean') {
+                            parsed = !!parsed;
+                        }
+                    }
+                }
+                if (formatters[$attrs.ngModel]) {
+                    $timeout(function() {
+                        var cursor;
+                        $element.val(formatters[$attrs.ngModel](parsed));
+                        cursor = $element.val().indexOf(parsed) + (parsed + '').length;
+                        $element[0].setSelectionRange(cursor, cursor);
+                    });
                 }
                 return parsed;
-            });
+            }
         }
         return {
             restrict: 'A',
@@ -24,12 +43,17 @@
         };
     }
 
-    function Format($filter) {
+    function Format($filter, $timeout) {
         function link($scope, $element, $attrs, $ngModel) {
-            formatters[$ngModel.$name] = formatter;
+            formatters[$attrs.ngModel] = formatter;
             $ngModel.$formatters.push(formatter);
             function formatter(value) {
-                return format(value, $scope.$eval($attrs.format), $filter);
+                var formatted = value;
+                if ($attrs.formatEmpty  && $scope.$eval($attrs.formatEmpty) ||
+                    (value && (value + '').length)) {
+                    formatted = format(value, $scope.$eval($attrs.format), $filter);
+                }
+                return formatted;
             }
         }
         return {
@@ -47,11 +71,12 @@
         } else if (typeof formatter === 'string') {
             formatter = formatter.split(':');
             filter = $filter(formatter[0]);
-            formatted = filter.apply(formatted, formatter.slice(1));
-        } else if (typeof formatter === 'object') {
-            formatted = formatted.replace.call(formatted, formatter.replace, formatter.with);
-        } else if (angular.isArray(formatter)) {
+            formatter[0] = value;
+            formatted = filter.apply(formatted, formatter);
+        } else if (value && angular.isArray(formatter)) {
             formatted = formatted.replace.apply(formatted, formatter);
+        } else if (value && typeof formatter === 'object') {
+            formatted = formatted.replace.call(formatted, formatter.replace, formatter.with);
         }
         return formatted;
     }
