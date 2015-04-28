@@ -1,13 +1,11 @@
 (function() {
     'use strict';
     angular
-        .module('model-format', [])
+        .module('modelFormat', [])
         .directive('parse', Parse)
         .directive('format', Format);
 
-    var formatters = {};
-
-    function Parse($filter, $timeout) {
+    function Parse($filter) {
         function link($scope, $element, $attrs, $ngModel) {
             $ngModel.$parsers.push(parser);
             function parser(value) {
@@ -19,14 +17,6 @@
                         parsed = parsed * 1;
                     }
                 }
-                if (formatters[$attrs.ngModel]) {
-                    $timeout(function() {
-                        var cursor;
-                        $element.val(formatters[$attrs.ngModel](parsed));
-                        cursor = $element.val().indexOf(parsed) + (parsed + '').length;
-                        $element[0].setSelectionRange(cursor, cursor);
-                    });
-                }
                 return parsed;
             }
         }
@@ -37,10 +27,15 @@
         };
     }
 
-    function Format($filter, $timeout) {
+    function Format($filter) {
         function link($scope, $element, $attrs, $ngModel) {
-            formatters[$attrs.ngModel] = formatter;
             $ngModel.$formatters.push(formatter);
+            if ($attrs.formatOn) {
+                $element.on($attrs.formatOn, function() {
+                    $element.val(formatter($scope.$eval($attrs.ngModel)));
+                });
+            }
+
             function formatter(value) {
                 var formatted = value;
                 if ($attrs.formatEmpty  && $scope.$eval($attrs.formatEmpty) ||
